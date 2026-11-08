@@ -1,0 +1,218 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="theme-color" content="#0a0c12">
+<title>Bahn 9 Controller</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@800;900&family=Barlow:wght@500;600&display=swap">
+<style>
+:root {
+  --night: #0a0c12; --panel: #141824; --line: rgba(255,255,255,0.1);
+  --ink: #eef0f5; --dim: #9aa1b4; --maple: #e2b878; --signal: #ff5a36; --ok: #3ddc97;
+  --f-display: "Big Shoulders Display", Impact, sans-serif; --f-body: "Barlow", system-ui, sans-serif;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+html, body { height: 100%; margin: 0; }
+body { background: var(--night); color: var(--ink); font-family: var(--f-body); overscroll-behavior: none; user-select: none; -webkit-user-select: none; touch-action: manipulation; }
+[hidden] { display: none !important; }
+.app { min-height: 100%; display: grid; grid-template-rows: auto 1fr auto; gap: 14px;
+  padding: max(14px, env(safe-area-inset-top)) max(16px, env(safe-area-inset-right)) max(16px, env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left)); }
+.top { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+.brand { font: 900 1.6rem/1 var(--f-display); text-transform: uppercase; }
+.brand span { color: var(--signal); }
+.conn { font-size: 0.85rem; color: var(--dim); display: flex; align-items: center; gap: 6px; }
+.conn i { width: 9px; height: 9px; border-radius: 50%; background: var(--dim); }
+.conn.on i { background: var(--ok); }
+.turn { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; display: grid; gap: 4px; }
+.turn b { font: 900 1.7rem/1 var(--f-display); text-transform: uppercase; }
+.turn small { color: var(--dim); font-size: 0.85rem; }
+.swingwrap { display: grid; place-items: center; gap: 12px; }
+.swing { width: min(72vw, 300px); aspect-ratio: 1; border-radius: 50%; border: 0; cursor: pointer;
+  background: radial-gradient(circle at 35% 30%, #4d6dff, #1a2a8a 60%, #0b1240); color: var(--ink);
+  font: 900 1.5rem/1.1 var(--f-display); text-transform: uppercase; letter-spacing: 0.03em;
+  box-shadow: 0 18px 50px rgba(30, 60, 255, 0.25), inset 0 -10px 30px rgba(0,0,0,0.4); transition: transform .12s; }
+.swing small { display: block; font: 600 0.85rem/1.3 var(--f-body); text-transform: none; letter-spacing: 0; color: rgba(255,255,255,0.75); margin-top: 6px; }
+.swing.hold { transform: scale(0.94); background: radial-gradient(circle at 35% 30%, #ff8a66, #c2341a 60%, #4a0d04); }
+.meter { width: min(72vw, 300px); height: 10px; border-radius: 5px; background: var(--panel); overflow: hidden; }
+.meter i { display: block; height: 100%; width: 0; background: linear-gradient(90deg, #2fb6ff, var(--maple), var(--signal)); transition: width .08s; }
+.last { font-size: 0.9rem; color: var(--dim); min-height: 1.2em; text-align: center; }
+.last b { color: var(--ink); }
+.pad { display: grid; grid-template-columns: repeat(3, 1fr); grid-template-rows: repeat(2, 56px); gap: 8px; }
+.pad button { border: 1px solid var(--line); background: var(--panel); color: var(--ink); border-radius: 10px; font: 800 1.3rem var(--f-display); }
+.pad button:active, .pad button.down { background: #222a3d; }
+.pad .ok { background: var(--maple); color: var(--night); }
+.pad .back { font: 600 0.9rem var(--f-body); color: var(--dim); }
+.sheet { position: fixed; inset: 0; display: grid; place-items: center; padding: 24px; background: rgba(6,7,11,0.92); z-index: 5; }
+.sheet div { max-width: 26rem; display: grid; gap: 14px; text-align: center; }
+.sheet h1 { margin: 0; font: 900 2.2rem/1 var(--f-display); text-transform: uppercase; }
+.sheet p { margin: 0; color: var(--dim); line-height: 1.45; }
+.sheet button { border: 0; border-radius: 10px; padding: 14px; font: 800 1.2rem var(--f-display); text-transform: uppercase; background: var(--maple); color: var(--night); }
+.callout { position: fixed; left: 0; right: 0; top: 30%; text-align: center; font: 900 3.4rem/1 var(--f-display); text-transform: uppercase; pointer-events: none; opacity: 0; transition: opacity .2s; }
+.callout.show { opacity: 1; }
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="top">
+    <div class="brand">Bahn <span>9</span></div>
+    <div class="conn" id="conn"><i></i><span id="connTxt">Verbinde …</span></div>
+  </div>
+  <div style="display:grid;gap:14px;align-content:start">
+    <div class="turn"><b id="who">Warte auf das Spiel</b><small id="what">Der Fernseher zeigt gleich an, wer dran ist.</small></div>
+    <div class="swingwrap">
+      <button class="swing" id="swing" aria-label="Halten und schwingen">Halten &amp; schwingen<small id="swingHint">Daumen drauf, ausholen, nach vorn schwingen, loslassen</small></button>
+      <div class="meter"><i id="meter"></i></div>
+      <div class="last" id="last"></div>
+    </div>
+  </div>
+  <div class="pad" id="pad">
+    <button data-k="back" class="back">Zurück</button>
+    <button data-k="up" aria-label="Hoch">▲</button>
+    <button data-k="ok" class="ok">OK</button>
+    <button data-k="left" aria-label="Links">◀</button>
+    <button data-k="down" aria-label="Runter">▼</button>
+    <button data-k="right" aria-label="Rechts">▶</button>
+  </div>
+</div>
+
+<div class="sheet" id="start">
+  <div>
+    <h1>Handy als Kugel</h1>
+    <p>Halte das Handy wie eine Bowlingkugel, Bildschirm zu dir. Den großen Knopf mit dem Daumen gedrückt halten, ausholen, nach vorn schwingen und beim Loslassen werfen. Eine Drehung des Handgelenks gibt Drall.</p>
+    <button id="startBtn">Los geht's</button>
+    <p id="startNote" style="font-size:.85rem"></p>
+  </div>
+</div>
+<div class="callout" id="callout"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/peerjs@1.5.4/dist/peerjs.min.js"></script>
+<script>
+(function () {
+  'use strict';
+  var $ = function (id) { return document.getElementById(id); };
+  var tvId = decodeURIComponent((location.hash || '').slice(1));
+  var conn = null, peer = null, sensors = false, wakeLock = null;
+
+  function setConn(on, txt) { $('conn').classList.toggle('on', on); $('connTxt').textContent = txt; }
+
+  function connect() {
+    if (!tvId) { setConn(false, 'Kein Spiel-Code'); $('what').textContent = 'Scanne den QR-Code auf dem Fernseher.'; return; }
+    if (!window.Peer) { setConn(false, 'Offline'); return; }
+    setConn(false, 'Verbinde …');
+    peer = new Peer();
+    peer.on('open', function () {
+      conn = peer.connect(tvId, { reliable: true });
+      conn.on('open', function () { setConn(true, 'Verbunden'); send({ t: 'hello' }); });
+      conn.on('data', onData);
+      conn.on('close', function () { setConn(false, 'Getrennt'); setTimeout(connect, 1500); });
+    });
+    peer.on('error', function (e) {
+      setConn(false, e && e.type === 'peer-unavailable' ? 'Spiel nicht gefunden' : 'Fehler, neuer Versuch …');
+      try { peer.destroy(); } catch (x) {}
+      setTimeout(connect, 2500);
+    });
+  }
+  function send(m) { if (conn && conn.open) conn.send(m); }
+
+  function onData(m) {
+    if (!m || !m.t) return;
+    if (m.t === 'state') {
+      $('who').textContent = m.player || 'Menü';
+      $('who').style.color = m.color || '';
+      var map = { menu: 'Im Menü: mit den Tasten unten einstellen, OK startet.', position: 'Startposition mit ◀ ▶, dann OK oder gleich schwingen.',
+        aim: 'Zielen mit ◀ ▶, dann schwingen.', power: 'Jetzt schwingen!', rolling: 'Die Kugel rollt …', result: 'OK für weiter.', over: 'Spiel vorbei. OK für eine Revanche.' };
+      $('what').textContent = (m.frame ? 'Frame ' + m.frame + ' von ' + m.nf + ' · ' : '') + (map[m.phase] || '');
+    } else if (m.t === 'call') {
+      var c = $('callout'); c.textContent = m.text; c.style.color = m.cls === 'strike' ? 'var(--signal)' : m.cls === 'spare' ? 'var(--maple)' : 'var(--ink)';
+      c.classList.add('show'); setTimeout(function () { c.classList.remove('show'); }, 1600);
+      if (navigator.vibrate) navigator.vibrate(m.cls === 'strike' ? [80, 60, 80, 60, 200] : 60);
+    }
+  }
+
+  // ---------- d-pad: key down/up so holding works like the remote
+  Array.prototype.forEach.call(document.querySelectorAll('#pad button'), function (b) {
+    var k = b.dataset.k;
+    b.addEventListener('pointerdown', function (e) { e.preventDefault(); b.classList.add('down'); send({ t: 'key', k: k, down: true }); });
+    var up = function () { if (!b.classList.contains('down')) return; b.classList.remove('down'); send({ t: 'key', k: k, down: false }); };
+    b.addEventListener('pointerup', up); b.addEventListener('pointerleave', up); b.addEventListener('pointercancel', up);
+  });
+
+  // ---------- swing detection
+  var holding = false, holdStart = 0, peak = 0, samples = [], gx = 0, gy = 0, gz = 0;
+  function onMotion(e) {
+    var a = e.acceleration, ag = e.accelerationIncludingGravity, r = e.rotationRate || {};
+    var ax, ay, az;
+    if (a && a.x != null) { ax = a.x; ay = a.y; az = a.z; }
+    else if (ag && ag.x != null) { gx = gx * 0.9 + ag.x * 0.1; gy = gy * 0.9 + ag.y * 0.1; gz = gz * 0.9 + ag.z * 0.1; ax = ag.x - gx; ay = ag.y - gy; az = ag.z - gz; }
+    else return;
+    if (!holding) return;
+    var mag = Math.sqrt(ax * ax + ay * ay + az * az);
+    if (mag > peak) peak = mag;
+    samples.push({ t: performance.now(), twist: r.gamma || 0, roll: r.beta || 0 });
+    if (samples.length > 120) samples.shift();
+    $('meter').style.width = Math.min(100, peak / 26 * 100) + '%';
+  }
+
+  var swingBtn = $('swing');
+  function press(e) {
+    e.preventDefault();
+    holding = true; holdStart = performance.now(); peak = 0; samples = [];
+    swingBtn.classList.add('hold'); $('meter').style.width = '0%';
+    send({ t: 'key', k: 'swingstart', down: true });
+  }
+  function releaseSwing(e) {
+    if (!holding) return;
+    if (e) e.preventDefault();
+    holding = false; swingBtn.classList.remove('hold');
+    var held = (performance.now() - holdStart) / 1000;
+    var power, spin = 0;
+    if (sensors && peak > 0.5) {
+      power = Math.max(0, Math.min(1, (peak - 5) / 20));
+      // wrist twist in the last 250 ms before letting go
+      var now = performance.now(), tw = 0, n = 0;
+      samples.forEach(function (s) { if (now - s.t < 250) { tw += s.twist; n++; } });
+      tw = n ? tw / n : 0;
+      var at = Math.abs(tw);
+      spin = at > 380 ? 2 : at > 140 ? 1 : 0;
+      if (tw < 0) spin = -spin;
+      if (peak < 6) { $('last').textContent = 'Zu wenig Schwung, versuch es nochmal.'; return; }
+    } else {
+      // no motion sensor: holding time sets the power
+      power = Math.max(0.1, Math.min(1, held / 1.6));
+    }
+    send({ t: 'throw', power: power, spin: spin });
+    var spinTxt = ['stark links', 'leicht links', 'gerade', 'leicht rechts', 'stark rechts'][spin + 2];
+    $('last').innerHTML = 'Wurf: <b>' + Math.round(power * 100) + ' %</b> Kraft · Drall <b>' + spinTxt + '</b>';
+    if (navigator.vibrate) navigator.vibrate(40);
+  }
+  swingBtn.addEventListener('pointerdown', press);
+  swingBtn.addEventListener('pointerup', releaseSwing);
+  swingBtn.addEventListener('pointercancel', releaseSwing);
+  swingBtn.addEventListener('contextmenu', function (e) { e.preventDefault(); });
+
+  // ---------- start: ask for sensor permission (iPhone needs a tap)
+  $('startBtn').addEventListener('click', function () {
+    var go = function () {
+      $('start').hidden = true;
+      window.addEventListener('devicemotion', function (e) { sensors = true; onMotion(e); });
+      try { if (navigator.wakeLock) navigator.wakeLock.request('screen').then(function (w) { wakeLock = w; }).catch(function () {}); } catch (x) {}
+      setTimeout(function () { if (!sensors) $('swingHint').textContent = 'Kein Bewegungssensor: halte länger für mehr Kraft'; }, 1500);
+    };
+    if (window.DeviceMotionEvent && typeof DeviceMotionEvent.requestPermission === 'function') {
+      DeviceMotionEvent.requestPermission().then(function (s) {
+        if (s !== 'granted') $('startNote').textContent = 'Ohne Bewegungssensor zählt, wie lange du drückst.';
+        go();
+      }).catch(go);
+    } else go();
+  });
+  document.addEventListener('visibilitychange', function () {
+    if (document.visibilityState === 'visible' && navigator.wakeLock && !wakeLock) navigator.wakeLock.request('screen').then(function (w) { wakeLock = w; }).catch(function () {});
+  });
+
+  connect();
+})();
+</script>
+</body>
+</html>
